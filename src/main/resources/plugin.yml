@@ -1,0 +1,12 @@
+main: ink.anh.gitplugin.GitPlugin
+name: GitPlugin
+version: 0.0.1
+author: Korvinius
+api-version: 1.13
+depend: [AnhyLibAPI]
+website: http://anh.ink
+commands:
+    gitpull:
+        usage: "[GitPlugin] TThe command '/gitpull' execution error, please check the arguments' correctness."
+    gitpush:
+        usage: "[GitPlugin] TThe command '/gitpush' execution error, please check the arguments' correctness."
