@@ -27,93 +27,78 @@ public class GitPlugin extends JavaPlugin {
 
         this.getCommand("gitpull").setExecutor(this);
         this.getCommand("gitpush").setExecutor(this);
+        this.getCommand("gitlogs").setExecutor(this);
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (command.getName().equalsIgnoreCase("gitpull")) {
-            if (!(sender instanceof ConsoleCommandSender)) {
-                sender.sendMessage("Цю команду можна виконувати лише з консолі.");
-                return true;
-            }
-
-            try {
-                File pluginsDirectory = getDataFolder().getParentFile();
-
-                ProcessBuilder processBuilder = new ProcessBuilder("git", "pull");
-                processBuilder.directory(pluginsDirectory);
-                Process process = processBuilder.start();
-
-                BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    sender.sendMessage(line);
-                }
-
-                process.waitFor();
-                sender.sendMessage("Git pull завершено.");
-            } catch (Exception e) {
-                sender.sendMessage("Сталася помилка при виконанні команди: " + e.getMessage());
-                e.printStackTrace();
-            }
-
+        if (!(sender instanceof ConsoleCommandSender)) {
+            sender.sendMessage("Цю команду можна виконувати лише з консолі.");
             return true;
         }
 
-        if (command.getName().equalsIgnoreCase("gitpush")) {
-            if (!(sender instanceof ConsoleCommandSender)) {
-                sender.sendMessage("Цю команду можна виконувати лише з консолі.");
+        try {
+            if (command.getName().equalsIgnoreCase("gitpull")) {
+                File pluginsDirectory = getDataFolder().getParentFile();
+                executeGitCommand(sender, pluginsDirectory, "pull");
+                sender.sendMessage("Git pull завершено.");
                 return true;
             }
 
-            try {
+            if (command.getName().equalsIgnoreCase("gitpush")) {
                 File pluginsDirectory = getDataFolder().getParentFile();
-
-                // Спочатку додаємо всі зміни
-                ProcessBuilder addBuilder = new ProcessBuilder("git", "add", ".");
-                addBuilder.directory(pluginsDirectory);
-                Process addProcess = addBuilder.start();
-                addProcess.waitFor();
-
-                // Отримуємо поточну дату і час
-                String timeStamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
-
-                // Створюємо коміт з повідомленням
-                ProcessBuilder commitBuilder = new ProcessBuilder("git", "commit", "-m", "\"Auto commit: " + timeStamp + "\"");
-                commitBuilder.directory(pluginsDirectory);
-                Process commitProcess = commitBuilder.start();
-                commitProcess.waitFor();
-
-                // Виводимо результат коміту в консоль
-                BufferedReader commitReader = new BufferedReader(new InputStreamReader(commitProcess.getInputStream()));
-                String commitLine;
-                while ((commitLine = commitReader.readLine()) != null) {
-                    sender.sendMessage(commitLine);
-                }
-
-                // Пушимо зміни на віддалений репозиторій
-                ProcessBuilder pushBuilder = new ProcessBuilder("git", "push");
-                pushBuilder.directory(pluginsDirectory);
-                Process pushProcess = pushBuilder.start();
-
-                // Зчитуємо результат пушу
-                BufferedReader pushReader = new BufferedReader(new InputStreamReader(pushProcess.getInputStream()));
-                String pushLine;
-                while ((pushLine = pushReader.readLine()) != null) {
-                    sender.sendMessage(pushLine);
-                }
-
-                pushProcess.waitFor();
-                sender.sendMessage("Git push завершено.");
-            } catch (Exception e) {
-                sender.sendMessage("Сталася помилка при виконанні команди: " + e.getMessage());
-                e.printStackTrace();
+                executeGitPush(sender, pluginsDirectory);
+                return true;
             }
 
+            if (command.getName().equalsIgnoreCase("gitlogs")) {
+                File logsDirectory = getDataFolder().getParentFile().getParentFile().toPath().resolve("logs").toFile();
+
+                if (!logsDirectory.exists() || !logsDirectory.isDirectory()) {
+                    sender.sendMessage("Папка logs не знайдена або не є директорією.");
+                    return true;
+                }
+
+                executeGitCommand(sender, logsDirectory, "pull");
+                sender.sendMessage("Git pull для папки logs завершено.");
+                return true;
+            }
+
+        } catch (Exception e) {
+            sender.sendMessage("Сталася помилка при виконанні команди: " + e.getMessage());
+            e.printStackTrace();
             return true;
         }
 
         return false;
+    }
+
+    private void executeGitCommand(CommandSender sender, File directory, String... commands) throws Exception {
+        ProcessBuilder processBuilder = new ProcessBuilder(commands);
+        processBuilder.directory(directory);
+        Process process = processBuilder.start();
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                sender.sendMessage(line);
+            }
+        }
+
+        process.waitFor();
+    }
+
+    private void executeGitPush(CommandSender sender, File directory) throws Exception {
+        // Додаємо всі зміни
+        executeGitCommand(sender, directory, "git", "add", ".");
+
+        // Отримуємо поточну дату і час для коміту
+        String timeStamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+        executeGitCommand(sender, directory, "git", "commit", "-m", "Auto commit: " + timeStamp);
+
+        // Пушимо зміни на віддалений репозиторій
+        executeGitCommand(sender, directory, "git", "push");
+        sender.sendMessage("Git push завершено.");
     }
 
     public GlobalManager getManager() {
